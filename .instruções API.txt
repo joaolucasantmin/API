@@ -1,0 +1,27 @@
+No cmd use "cd C:\Users\Adilson\Documents\TCC-Adilson-Mineiro-Energia-Solar\TCC-Adilson-Mineiro-Energia-Solar\API"
+para ir na pasta do projeto (NA LOJA)
+
+No cmd use "cd C:\Users\João\Documents\git\TCC-Adilson-Mineiro-Energia-Solar\API"
+para ir na pasta do projeto (CASA JOÃO)
+
+
+"npm i nodemon" para instalar nodemon
+"npm run dev" para rodar o servidor
+
+
+Futuras melhorias pra API
+-Criptografar senhas (tem uma biblioteca chamada bcrypt, depois vamos ver sobre)
+-Nao cadastrar com mesmo email
+-Todos campos preenchidos
+
+
+SENHA USUARIOS COM HASH: 
+id 1: 123456
+id 3: xyxyxyx
+id 4: jlf220609
+id 6: Morgana<3
+id 7: if298
+id 8: 290587
+id 9: cuxcuz
+id 11: nao lembro
+id 12: login
