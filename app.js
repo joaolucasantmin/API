@@ -21,6 +21,6 @@ app.use('/API', auth, privateRoutes);
 const PORT = process.env.PORT || 3000;
 
 //Hospedando
-app.listen(PORT, 'O.O.O.O', () => {
-    console.log('Servidor rodando em ${PORT}');
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor rodando em ${PORT}`);
 });
