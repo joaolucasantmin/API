@@ -18,6 +18,9 @@ app.use('/API',publicRoutes);
 //Essas rotas exigiram que o login tenha sido realizado
 app.use('/API', auth, privateRoutes);
 
-app.listen(3000, () => {
-    console.log('Servidor rodando em http://localhost:3000');
+const PORT = process.env.PORT || 3000;
+
+//Hospedando
+app.listen(PORT, 'O.O.O.O', () => {
+    console.log('Servidor rodando em ${PORT}');
 });
