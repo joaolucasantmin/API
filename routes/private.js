@@ -1,6 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import supabase from '../config/supabase.js';
+import auth from '../middlewares/auth.js';
 
 const router = express.Router();
 
