@@ -145,7 +145,7 @@ router.post('/mensagens', async (req, res) => {
 
 
 //Rota para carregar um mensagens
-router.get('/mensagens/id:', auth, async (req, res) => {
+router.get('/mensagens/:id', auth, async (req, res) => {
     const meuId = req.usuario.id;
     const outroId = Number(req.params.id);
 
