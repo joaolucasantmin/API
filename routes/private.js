@@ -4,7 +4,7 @@ import supabase from '../config/supabase.js';
 
 const router = express.Router();
 
-
+//ROTAS DE USUARIO
 // Rota de Consulta (GET)
 router.get('/usuarios', async (req, res) => {
 
@@ -23,6 +23,7 @@ router.get('/usuarios', async (req, res) => {
     });
 
 });
+
 
 // Rota de Consulta de UM usuario (GET)
 router.get("/perfil", async (req, res) => {
@@ -81,8 +82,6 @@ router.delete('/usuarios/:id', async (req, res) => {
 });
 
 
-
-
 // Rota de Atualização (PUT)
 router.put('/usuarios/:id', async (req, res) => {
 
@@ -117,6 +116,49 @@ router.put('/usuarios/:id', async (req, res) => {
         data
     });
 
+});
+
+
+
+//ROTAS DE MENSAGENS
+//Rota para pegar ID do usuario pelo JWT, frontend envia apenas destinatario e mensagem
+router.post('/mensagens', async (req, res) => {
+    const {destinatario, mensagem} = req.body;
+    const remetente = req.usuario.id;
+
+    const {data, error} = await supabase
+        .from('mensagens')
+        .insert([{
+            cod_remetente: remetente,
+            cod_destinatario: destinatario,
+            mensagem
+        }])
+        .select();
+
+    if(error) {
+        return res.status(500).json(error);
+    }    
+
+    res.status(201).json(data[0]);
+});
+
+
+//Rota para carregar um mensagens
+router.get('/mensagens/id:', auth, async (req, res) => {
+    const meuId = req.usuario.id;
+    const outroId = Number(req.params.id);
+
+    const {data,error} = await supabase
+        .from('mensagens')
+        .select('*')
+        .or(`and(cod_remetente.eq.${meuId},cod_destinatario.eq.${outroId}),and(cod_remetente.eq.${outroId},cod_destinatario.eq.${meuId})`)
+        .order('data_envio', { ascending: true});
+
+    if (error) {
+        return res.status(500).json(error);
+    }
+
+    res.json(data);    
 });
 
 export default router;
