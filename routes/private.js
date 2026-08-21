@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import supabase from '../config/supabase.js';
 import auth from '../middlewares/auth.js';
+import admin from '../middlewares/admin.js';
 
 const router = express.Router();
 
@@ -35,7 +36,7 @@ router.get("/perfil", async (req, res) => {
 
         const { data, error } = await supabase
             .from("usuarios")
-            .select("id, nome_usuario, email_usuario")
+            .select("id, nome_usuario, email_usuario, cargo")
             .eq("id", id)
             .single();
 
@@ -59,7 +60,7 @@ router.get("/perfil", async (req, res) => {
 
 
 // Rota de Exclusão (DELETE)
-router.delete('/usuarios/:id', async (req, res) => {
+router.delete('/usuarios/:id', auth, admin, async (req, res) => {
 
     const { id } = req.params;
 
