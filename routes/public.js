@@ -57,7 +57,7 @@ router.post('/cadastro', async (req, res) => {
                 nome_usuario: user.nome_usuario,
                 email_usuario: user.email_usuario,
                 senha_usuario: senhaHash,
-                foto_usuario: user.foto_usuario
+                
             }])
             .select();
 
