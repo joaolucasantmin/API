@@ -1,8 +1,9 @@
-import express from 'express';
+import express, { json } from 'express';
 import bcrypt from 'bcrypt';
 import supabase from '../config/supabase.js';
 import auth from '../middlewares/auth.js';
 import admin from '../middlewares/admin.js';
+import upload from '../middlewares/upload.js';
 
 const router = express.Router();
 
@@ -27,7 +28,7 @@ router.get('/usuarios', async (req, res) => {
 });
 
 
-// Rota de Consulta de UM usuario (GET)
+// Rota de Consulta de um usuario (GET)
 router.get("/perfil", async (req, res) => {
 
     try {
@@ -36,7 +37,7 @@ router.get("/perfil", async (req, res) => {
 
         const { data, error } = await supabase
             .from("usuarios")
-            .select("id, nome_usuario, email_usuario, cargo")
+            .select("id, nome_usuario, email_usuario, cargo, foto_perfil")
             .eq("id", id)
             .single();
 
@@ -57,6 +58,7 @@ router.get("/perfil", async (req, res) => {
     }
 
 });
+
 
 
 // Rota de Exclusão (DELETE)
@@ -84,41 +86,99 @@ router.delete('/usuarios/:id', auth, admin, async (req, res) => {
 });
 
 
-// Rota de Atualização (PUT)
-router.put('/usuarios/:id', async (req, res) => {
+//Rota de alteração de perfil(PUT)
+router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
 
-    const { id } = req.params;
-    const { nome_usuario, email_usuario, senha_usuario, foto_usuario } = req.body;
+    try {
+    const id = req.usuario.id;
+    const { nome_usuario, senha } = req.body;
 
-    let dadosAtualizados = {
-        nome_usuario,
-        email_usuario,
-        foto_usuario
-    };
+    let dadosAtualizados = {};
 
-    // Se enviou uma nova senha, criptografa ela
-    if (senha_usuario) {
-        dadosAtualizados.senha_usuario = await bcrypt.hash(senha_usuario, 10);
+    //Atualiza nome
+    if (nome_usuario) {
+      dadosAtualizados.nome_usuario = nome_usuario;
     }
+
+    //Atualiza senha
+    if (senha) {
+      dadosAtualizados.senha_usuario = await bcrypt.hash(senha, 10);
+    }
+
+    //Verifica se já existe algum usuário com esse nome
+    if(nome_usuario){
+        const {data: usuarioExistente, error: erroBusca} = await supabase
+            .from("usuarios")
+            .select("id")
+            .eq("nome_usuario", nome_usuario)
+            .neq("id", id)
+            .maybeSingle();
+        
+        if(erroBusca){
+            return res.status(500).json({
+                error: erroBusca.message,
+            });
+        }
+
+        if(usuarioExistente){
+            return res.status(409).json({
+                mensagem: "Esse nome de usuario já esta em uso.",
+            });
+        }
+
+        dadosAtualizados.nome_usuario = nome_usuario;
+    }
+
+
+
+    if (req.file) {
+      const nomeArquivo = `${id}-${Date.now()}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("perfil")
+        .upload(nomeArquivo, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from("perfil")
+        .getPublicUrl(nomeArquivo);
+
+      dadosAtualizados.foto_perfil = data.publicUrl;
+    }
+
+    //Caso nao há alterações, Evita requisições vazias
+    if (!nome_usuario && !senha && !req.file) {
+        return res.status(400).json({
+            mensagem: "Nenhuma alteração enviada.",
+        });
+        }
+
 
     const { data, error } = await supabase
-        .from('usuarios')
-        .update(dadosAtualizados)
-        .eq('id', id)
-        .select();
+      .from("usuarios")
+      .update(dadosAtualizados)
+      .eq("id", id)
+      .select("id, nome_usuario, email_usuario, cargo, foto_perfil")
+      .single();
 
     if (error) {
-        return res.status(500).json({
-            error: error.message
-        });
+      return res.status(500).json({ error: error.message });
     }
 
-    return res.status(200).json({
-        message: 'Usuário atualizado com sucesso!',
-        data
+    return res.status(200).json(data);
+  } catch (erro) {
+    console.log(erro);
+    return res.status(500).json({
+      mensagem: "Erro ao atualizar perfil:",
     });
-
+  }
 });
+
+
 
 
 
