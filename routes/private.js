@@ -184,7 +184,7 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
 
 //ROTAS DE MENSAGENS
 //Rota para pegar ID do usuario pelo JWT, frontend envia apenas destinatario e mensagem
-router.post('/mensagens', async (req, res) => {
+router.post('/mensagens', auth, async (req, res) => {
     const {destinatario, mensagem} = req.body;
     const remetente = req.usuario.id;
 
@@ -222,5 +222,142 @@ router.get('/mensagens/:id', auth, async (req, res) => {
 
     res.json(data);    
 });
+
+
+
+
+//ROTAS DE AMIZADES
+
+//Enviar pedido de amizade
+router.post('/amizades', auth, async (req, res) =>{
+
+    try {
+
+        const solicitante = req.usuario.id;
+        const { destinatario } = req.body;
+
+        // Verifica se o destinatário foi enviado
+        if (!destinatario) {
+            return res.status(400).json({
+                mensagem: "É necessário informar o usuário destinatário."
+            });
+        }
+
+        // Impede enviar pedido para si mesmo
+        if (Number(destinatario) === Number(solicitante)) {
+            return res.status(400).json({
+                mensagem: "Você não pode enviar um pedido para si mesmo."
+            });
+        }
+
+        // Verifica se o usuário destinatário existe
+        const { data: usuario, error: erroUsuario } = await supabase
+            .from('usuarios')
+            .select('id')
+            .eq('id', destinatario)
+            .maybeSingle();
+
+        if (erroUsuario) {
+            return res.status(500).json({
+                error: erroUsuario.message
+            });
+        }
+
+        if (!usuario) {
+            return res.status(404).json({
+                mensagem: "Usuário não encontrado."
+            });
+        }
+
+        // Verifica se já existe uma amizade/pedido entre os dois
+        const { data: amizadeExistente, error: erroAmizade } = await supabase
+            .from('amizades')
+            .select('*')
+            .or(
+                `and(usuario_solicitante.eq.${solicitante},usuario_destinatario.eq.${destinatario}),and(usuario_solicitante.eq.${destinatario},usuario_destinatario.eq.${solicitante})`
+            )
+            .maybeSingle();
+
+        if (erroAmizade) {
+            return res.status(500).json({
+                error: erroAmizade.message
+            });
+        }
+
+        if (amizadeExistente) {
+
+            if (amizadeExistente.status === 'aceito') {
+                return res.status(409).json({
+                    mensagem: "Vocês já são amigos."
+                });
+            }
+
+            if (amizadeExistente.status === 'pendente') {
+                return res.status(409).json({
+                    mensagem: "Já existe um pedido de amizade pendente."
+                });
+            }
+
+            // Se anteriormente foi recusado, podemos permitir um novo pedido
+            if (amizadeExistente.status === 'recusado') {
+
+                const { data, error } = await supabase
+                    .from('amizades')
+                    .update({
+                        usuario_solicitante: solicitante,
+                        usuario_destinatario: destinatario,
+                        status: 'pendente',
+                        data_criacao: new Date().toISOString()
+                    })
+                    .eq('id', amizadeExistente.id)
+                    .select()
+                    .single();
+
+                if (error) {
+                    return res.status(500).json({
+                        error: error.message
+                    });
+                }
+
+                return res.status(200).json({
+                    mensagem: "Pedido de amizade enviado novamente.",
+                    amizade: data
+                });
+            }
+        }
+
+        // Cria novo pedido
+        const { data, error } = await supabase
+            .from('amizades')
+            .insert([{
+                usuario_solicitante: solicitante,
+                usuario_destinatario: destinatario,
+                status: 'pendente'
+            }])
+            .select()
+            .single();
+
+        if (error) {
+            return res.status(500).json({
+                error: error.message
+            });
+        }
+
+        return res.status(201).json({
+            mensagem: "Pedido de amizade enviado.",
+            amizade: data
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        return res.status(500).json({
+            mensagem: "Erro interno ao enviar pedido de amizade."
+        });
+    }
+});
+
+
 
 export default router;
