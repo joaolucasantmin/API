@@ -408,7 +408,7 @@ router.post('/amizades', auth, async (req, res) =>{
 });
 
 
-    //Rota para aceitar pedidos de amizades(APENAS PARA O USUARIO LOGADO)
+    //Rota para ACEITAR pedidos de amizades(APENAS PARA O USUARIO LOGADO)
     router.put('/amizades/:id/aceitar', auth, async (req, res) => {
 
     try {
@@ -469,5 +469,71 @@ router.post('/amizades', auth, async (req, res) =>{
     }
 
 });
+
+
+
+    //Rota para RECUSAR pedidos de amizades(APENAS PARA O USUARIO LOGADO)
+    router.put('/amizades/:id/recusar', auth, async (req, res) => {
+
+    try {
+
+        const meuId = req.usuario.id;
+        const idAmizade = req.params.id;
+
+        // Procura o pedido e verifica se pertence ao usuário logado
+        const { data: pedido, error: erroBusca } = await supabase
+            .from('amizades')
+            .select('*')
+            .eq('id', idAmizade)
+            .eq('usuario_destinatario', meuId)
+            .eq('status', 'pendente')
+            .maybeSingle();
+
+        if (erroBusca) {
+            return res.status(500).json({
+                error: erroBusca.message
+            });
+        }
+
+        // Pedido não encontrado
+        if (!pedido) {
+            return res.status(404).json({
+                mensagem: "Pedido de amizade não encontrado."
+            });
+        }
+
+        // Recusa o pedido
+        const { data, error } = await supabase
+            .from('amizades')
+            .update({
+                status: 'recusado'
+            })
+            .eq('id', idAmizade)
+            .select()
+            .single();
+
+        if (error) {
+            return res.status(500).json({
+                error: error.message
+            });
+        }
+
+        return res.status(200).json({
+            mensagem: "Pedido de amizade recusado.",
+            amizade: data
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        return res.status(500).json({
+            mensagem: "Erro interno ao recusar pedido de amizade."
+        });
+    }
+
+});
+
+
 
 export default router;
