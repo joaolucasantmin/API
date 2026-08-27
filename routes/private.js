@@ -360,4 +360,52 @@ router.post('/amizades', auth, async (req, res) =>{
 
 
 
+
+    //Listar pedidos de amizade recebidos
+    router.get('/amizades/pedidos', auth, async (req, res) => {
+
+    try {
+
+        const meuId = req.usuario.id;
+
+        const { data, error } = await supabase
+            .from('amizades')
+            .select(`
+                id,
+                usuario_solicitante,
+                usuario_destinatario,
+                status,
+                data_criacao,
+                usuarios!amizades_usuario_solicitante_fkey (
+                    id,
+                    nome_usuario,
+                    foto_perfil
+                )
+            `)
+            .eq('usuario_destinatario', meuId)
+            .eq('status', 'pendente')
+            .order('data_criacao', { ascending: false });
+
+        if (error) {
+            return res.status(500).json({
+                error: error.message
+            });
+        }
+
+        return res.status(200).json({
+            pedidos: data
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        return res.status(500).json({
+            mensagem: "Erro interno ao buscar pedidos de amizade."
+        });
+    }
+
+});
+
+
 export default router;
