@@ -180,29 +180,101 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
 
 
 
-
+    
 
 //ROTAS DE MENSAGENS
-//Rota para pegar ID do usuario pelo JWT, frontend envia apenas destinatario e mensagem
-router.post('/mensagens', auth, async (req, res) => {
-    const {destinatario, mensagem} = req.body;
-    const remetente = req.usuario.id;
+    //Rota para envio de mensagens, seja elas com anexo ou não
+    router.post('/mensagens', auth, upload.single("arquivo"), async (req, res) => {
 
-    const {data, error} = await supabase
-        .from('mensagens')
-        .insert([{
-            cod_remetente: remetente,
-            cod_destinatario: destinatario,
-            mensagem
-        }])
-        .select();
+        try {
 
-    if(error) {
-        return res.status(500).json(error);
-    }    
+            const remetente = req.usuario.id;
+            const { destinatario, mensagem } = req.body;
 
-    res.status(201).json(data[0]);
-});
+            // Verifica se o destinatário foi enviado
+            if (!destinatario) {
+                return res.status(400).json({
+                    mensagem: "Destinatário não informado."
+                });
+            }
+
+            let nomeArquivo = null;
+            let arquivoUrl = null;
+            let tipoArquivo = null;
+
+            // Caso tenha arquivo
+            if (req.file) {
+
+                nomeArquivo = req.file.originalname;
+                tipoArquivo = req.file.mimetype;
+
+                // Cria um nome único para o arquivo
+                const nomeArquivoStorage =
+                    `${remetente}-${Date.now()}-${req.file.originalname}`;
+
+                // Envia para o bucket "anexos"
+                const { error: erroUpload } = await supabase.storage
+                    .from("anexos")
+                    .upload(nomeArquivoStorage, req.file.buffer, {
+                        contentType: req.file.mimetype,
+                        upsert: false
+                    });
+
+                if (erroUpload) {
+                    return res.status(500).json({
+                        mensagem: "Erro ao enviar o arquivo.",
+                        error: erroUpload.message
+                    });
+                }
+
+                // Pega a URL pública do arquivo
+                const { data: urlData } = supabase.storage
+                    .from("anexos")
+                    .getPublicUrl(nomeArquivoStorage);
+
+                arquivoUrl = urlData.publicUrl;
+            }
+
+            // Cria a mensagem no banco
+            const { data, error } = await supabase
+                .from("mensagens")
+                .insert([{
+                    cod_remetente: remetente,
+                    cod_destinatario: destinatario,
+                    mensagem: mensagem || null,
+                    nome_arquivo: nomeArquivo,
+                    arquivo_url: arquivoUrl,
+                    tipo_arquivo: tipoArquivo
+                }])
+                .select()
+                .single();
+
+            if (error) {
+                return res.status(500).json({
+                    mensagem: "Erro ao salvar mensagem.",
+                    error: error.message
+                });
+            }
+
+            return res.status(201).json(data);
+
+        } catch (error) {
+
+            console.log(error);
+
+            return res.status(500).json({
+                mensagem: "Erro interno ao enviar mensagem.",
+                error: error.message
+            });
+
+        }
+
+    });
+
+
+
+
+
 
 
 //Rota para carregar um mensagens
@@ -533,6 +605,67 @@ router.post('/amizades', auth, async (req, res) =>{
     }
 
 });
+
+
+
+
+    // Rota para REMOVER amizade
+    router.delete('/amizades/:id', auth, async (req, res) => {
+
+        try {
+
+            const meuId = req.usuario.id;
+            const outroUsuarioId = req.params.id;
+
+            // Procura a amizade entre os dois usuários
+            const { data: amizade, error: erroBusca } = await supabase
+                .from('amizades')
+                .select('id')
+                .or(
+                    `and(usuario_solicitante.eq.${meuId},usuario_destinatario.eq.${outroUsuarioId}),and(usuario_solicitante.eq.${outroUsuarioId},usuario_destinatario.eq.${meuId})`
+                )
+                .eq('status', 'aceito')
+                .maybeSingle();
+
+            if (erroBusca) {
+                return res.status(500).json({
+                    error: erroBusca.message
+                });
+            }
+
+            if (!amizade) {
+                return res.status(404).json({
+                    mensagem: "Amizade não encontrada."
+                });
+            }
+
+            // Remove a amizade
+            const { error: erroDelete } = await supabase
+                .from('amizades')
+                .delete()
+                .eq('id', amizade.id);
+
+            if (erroDelete) {
+                return res.status(500).json({
+                    error: erroDelete.message
+                });
+            }
+
+            return res.status(200).json({
+                mensagem: "Amizade removida com sucesso."
+            });
+
+        } catch (error) {
+
+            console.log(error);
+
+            return res.status(500).json({
+                mensagem: "Erro interno ao remover amizade."
+            });
+        }
+
+    });
+
 
 
 
