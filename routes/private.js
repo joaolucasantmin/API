@@ -186,10 +186,21 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
     //Rota para envio de mensagens, seja elas com anexo ou não
     router.post('/mensagens', auth, upload.single("arquivo"), async (req, res) => {
 
+        console.log("===== ENVIO DE MENSAGEM =====");
+        console.log("Body:", req.body);
+        console.log("Arquivo:", req.file);
+
+
         try {
 
             const remetente = req.usuario.id;
             const { destinatario, mensagem } = req.body;
+
+
+            console.log("Remetente:", remetente);
+            console.log("Destinatário:", destinatario);
+            console.log("Mensagem:", mensagem);
+
 
             // Verifica se o destinatário foi enviado
             if (!destinatario) {
@@ -205,12 +216,23 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
             // Caso tenha arquivo
             if (req.file) {
 
+
+                console.log("Arquivo recebido!");
+                console.log("Nome:", req.file.originalname);
+                console.log("Tipo:", req.file.mimetype);
+                console.log("Tamanho:", req.file.size);
+
+
                 nomeArquivo = req.file.originalname;
                 tipoArquivo = req.file.mimetype;
 
                 // Cria um nome único para o arquivo
                 const nomeArquivoStorage =
                     `${remetente}-${Date.now()}-${req.file.originalname}`;
+
+
+                console.log("Nome no Storage:", nomeArquivoStorage);
+
 
                 // Envia para o bucket "anexos"
                 const { error: erroUpload } = await supabase.storage
@@ -221,11 +243,21 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
                     });
 
                 if (erroUpload) {
+
+
+                console.log("ERRO NO UPLOAD:");
+                console.log(erroUpload);    
+
+
                     return res.status(500).json({
                         mensagem: "Erro ao enviar o arquivo.",
                         error: erroUpload.message
                     });
                 }
+
+
+                console.log("Upload realizado com sucesso!");
+
 
                 // Pega a URL pública do arquivo
                 const { data: urlData } = supabase.storage
@@ -233,7 +265,12 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
                     .getPublicUrl(nomeArquivoStorage);
 
                 arquivoUrl = urlData.publicUrl;
+
+
+                console.log("URL:", arquivoUrl);
             }
+
+                console.log("Tentando salvar mensagem no banco...");
 
             // Cria a mensagem no banco
             const { data, error } = await supabase
@@ -250,16 +287,27 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
                 .single();
 
             if (error) {
+
+                console.log("ERRO AO SALVAR MENSAGEM:");
+                console.log(error);
+
                 return res.status(500).json({
                     mensagem: "Erro ao salvar mensagem.",
                     error: error.message
                 });
             }
 
+
+            console.log("Mensagem salva com sucesso!");
+
+
             return res.status(201).json(data);
 
         } catch (error) {
 
+            //console.log(error); VOLTAR ESSE QUANDO REMOVER OS OUTROS CONSOLE LOG
+
+            console.log("ERRO GERAL:");
             console.log(error);
 
             return res.status(500).json({
