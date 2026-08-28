@@ -67,6 +67,26 @@ router.post('/cadastro', async (req, res) => {
             });
         }
 
+
+
+        //Adiciona o Adilson(Nosso Cliente/Técnico) automaticamente como amigo
+        const novoUsuarioId = data[0].id;
+
+        const { error: erroAmizade } = await supabase
+            .from('amizades')
+            .insert([{
+                usuario_solicitante: 44,
+                usuario_destinatario: novoUsuarioId,
+                status: 'aceito'
+            }]);
+
+        if (erroAmizade) {
+            return res.status(500).json({
+                error: erroAmizade.message
+            });
+        }
+        
+
         return res.status(201).json(data);
 
     } catch (error) {
