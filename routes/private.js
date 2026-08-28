@@ -536,4 +536,71 @@ router.post('/amizades', auth, async (req, res) =>{
 
 
 
+    //Rota para Listar Amizades
+    router.get('/amizades', auth, async (req, res) => {
+
+    try {
+
+        const meuId = req.usuario.id;
+
+        // Busca todas as amizades aceitas das quais o usuário participa
+        const { data: amizades, error } = await supabase
+            .from('amizades')
+            .select('*')
+            .or(`usuario_solicitante.eq.${meuId},usuario_destinatario.eq.${meuId}`)
+            .eq('status', 'aceito');
+
+        if (error) {
+            return res.status(500).json({
+                error: error.message
+            });
+        }
+
+        // Descobre o ID do outro usuário em cada amizade
+        const idsAmigos = amizades.map((amizade) => {
+
+            if (Number(amizade.usuario_solicitante) === Number(meuId)) {
+                return amizade.usuario_destinatario;
+            }
+
+            return amizade.usuario_solicitante;
+
+        });
+
+        // Se não tiver amigos
+        if (idsAmigos.length === 0) {
+            return res.status(200).json({
+                amigos: []
+            });
+        }
+
+        // Busca os dados dos amigos
+        const { data: amigos, error: erroUsuarios } = await supabase
+            .from('usuarios')
+            .select('id, nome_usuario, email_usuario, cargo, foto_perfil')
+            .in('id', idsAmigos);
+
+        if (erroUsuarios) {
+            return res.status(500).json({
+                error: erroUsuarios.message
+            });
+        }
+
+        return res.status(200).json({
+            amigos
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        return res.status(500).json({
+            mensagem: "Erro interno ao buscar amigos."
+        });
+    }
+
+});
+
+
+
 export default router;
