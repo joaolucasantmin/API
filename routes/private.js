@@ -184,12 +184,39 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
 
 //ROTAS DE MENSAGENS
     //Rota para envio de mensagens, seja elas com anexo ou não
-    router.post('/mensagens', auth, upload.single("arquivo"), async (req, res) => {
+    router.post(
+    '/mensagens',
+    auth,
+    (req, res, next) => {
+
+        upload.single("arquivo")(req, res, (err) => {
+
+            if (err) {
+
+                console.log("ERRO DO MULTER:");
+                console.log(err);
+
+                // Arquivo maior que 10 MB
+                if (err.code === "LIMIT_FILE_SIZE") {
+                    return res.status(413).json({
+                        mensagem: "O arquivo não pode ultrapassar 10 MB."
+                    });
+                }
+
+                return res.status(400).json({
+                    mensagem: "Erro ao processar o arquivo."
+                });
+            }
+
+            next();
+        });
+
+    },
+    async (req, res) => {
 
         console.log("===== ENVIO DE MENSAGEM =====");
         console.log("Body:", req.body);
         console.log("Arquivo:", req.file);
-
 
         try {
 
