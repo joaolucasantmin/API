@@ -250,12 +250,13 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
                 console.log("Tamanho:", req.file.size);
 
 
-                nomeArquivo = req.file.originalname;
                 tipoArquivo = req.file.mimetype;
 
                 // Cria um nome único para o arquivo
                 const nomeArquivoStorage =
                     `${remetente}-${Date.now()}-${req.file.originalname}`;
+
+                    nomeArquivo = nomeArquivoStorage;
 
 
                 console.log("Nome no Storage:", nomeArquivoStorage);
@@ -349,10 +350,7 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
 
 
 
-
-
-
-//Rota para carregar um mensagens
+//Rota para carregar mensagens
 router.get('/mensagens/:id', auth, async (req, res) => {
     const meuId = req.usuario.id;
     const outroId = Number(req.params.id);
@@ -368,6 +366,85 @@ router.get('/mensagens/:id', auth, async (req, res) => {
     }
 
     res.json(data);    
+});
+
+
+
+//Rota para excluir mensagem selecionada
+router.delete('/mensagens', auth, async (req, res) => {
+
+    try {
+
+        const idMensagem = Number(req.params.id);
+        const meuId = req.usuario.id;
+
+        // Busca a mensagem
+        const { data: mensagem, error: erroBusca } = await supabase
+            .from('mensagens')
+            .select('cod_mensagem, cod_remetente, nome_arquivo')
+            .eq('cod_mensagem', idMensagem)
+            .single();
+
+        if (erroBusca || !mensagem) {
+            return res.status(404).json({
+                mensagem: "Mensagem não encontrada."
+            });
+        }
+
+        // Verifica se a mensagem pertence ao usuário
+        if (mensagem.cod_remetente !== meuId) {
+            return res.status(403).json({
+                mensagem: "Você não pode excluir essa mensagem."
+            });
+        }
+
+        // Se tiver arquivo, remove do Storage
+        if (mensagem.nome_arquivo) {
+
+            const { error: erroArquivo } = await supabase.storage
+                .from("anexos")
+                .remove([mensagem.nome_arquivo]);
+
+            if (erroArquivo) {
+                console.log("Erro ao excluir arquivo:", erroArquivo);
+
+                return res.status(500).json({
+                    mensagem: "Erro ao excluir o arquivo do Storage.",
+                    error: erroArquivo.message
+                });
+            }
+        }
+
+        // Exclui a mensagem do banco
+        const { error: erroDelete } = await supabase
+            .from('mensagens')
+            .delete()
+            .eq('cod_mensagem', idMensagem);
+
+        if (erroDelete) {
+
+            console.log("Erro ao excluir mensagem:", erroDelete);
+
+            return res.status(500).json({
+                mensagem: "Erro ao excluir mensagem.",
+                error: erroDelete.message
+            });
+        }
+
+        return res.status(200).json({
+            mensagem: "Mensagem excluída com sucesso."
+        });
+
+    } catch (error) {
+
+        console.log("Erro geral ao excluir mensagem:", error);
+
+        return res.status(500).json({
+            mensagem: "Erro interno ao excluir mensagem.",
+            error: error.message
+        });
+    }
+
 });
 
 
