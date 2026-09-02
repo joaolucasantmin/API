@@ -371,7 +371,7 @@ router.get('/mensagens/:id', auth, async (req, res) => {
 
 
 //Rota para excluir mensagem selecionada
-router.delete('/mensagens', auth, async (req, res) => {
+router.delete('/mensagens/:id', auth, async (req, res) => {
 
     try {
 
