@@ -7,6 +7,27 @@ import upload from '../middlewares/upload.js';
 
 const router = express.Router();
 
+
+// Verifica se existe bloqueio entre dois usuários
+const existeBloqueio = async (usuario1, usuario2) => {
+
+    const { data, error } = await supabase
+        .from('bloqueios')
+        .select('id')
+        .or(
+            `and(usuario_bloqueador.eq.${usuario1},usuario_bloqueado.eq.${usuario2}),and(usuario_bloqueador.eq.${usuario2},usuario_bloqueado.eq.${usuario1})`
+        )
+        .maybeSingle();
+
+    if (error) {
+        throw error;
+    }
+
+    return !!data;
+};
+
+
+
 //ROTAS DE USUARIO
 // Rota de Consulta (GET)
 router.get('/usuarios', async (req, res) => {
@@ -493,6 +514,17 @@ router.post('/amizades', auth, async (req, res) =>{
             });
         }
 
+
+        // Verifica se existe bloqueio entre os usuários
+            const bloqueado = await existeBloqueio(solicitante, destinatario);
+
+            if (bloqueado) {
+                return res.status(403).json({
+                    mensagem: "Não é possível enviar um pedido de amizade para este usuário."
+                });
+            }    
+
+
         // Verifica se já existe uma amizade/pedido entre os dois
         const { data: amizadeExistente, error: erroAmizade } = await supabase
             .from('amizades')
@@ -586,50 +618,92 @@ router.post('/amizades', auth, async (req, res) =>{
 
 
     //Listar pedidos de amizade recebidos
-    router.get('/amizades/pedidos', auth, async (req, res) => {
+        router.get('/amizades/pedidos', auth, async (req, res) => {
 
-    try {
+            try {
 
-        const meuId = req.usuario.id;
+                const meuId = req.usuario.id;
 
-        const { data, error } = await supabase
-            .from('amizades')
-            .select(`
-                id,
-                usuario_solicitante,
-                usuario_destinatario,
-                status,
-                data_criacao,
-                usuarios!amizades_usuario_solicitante_fkey (
-                    id,
-                    nome_usuario,
-                    foto_perfil
-                )
-            `)
-            .eq('usuario_destinatario', meuId)
-            .eq('status', 'pendente')
-            .order('data_criacao', { ascending: false });
+                // Busca os pedidos pendentes recebidos
+                const { data: pedidos, error: erroPedidos } = await supabase
+                    .from('amizades')
+                    .select(`
+                        id,
+                        usuario_solicitante,
+                        usuario_destinatario,
+                        status,
+                        data_criacao,
+                        usuarios!amizades_usuario_solicitante_fkey (
+                            id,
+                            nome_usuario,
+                            foto_perfil
+                        )
+                    `)
+                    .eq('usuario_destinatario', meuId)
+                    .eq('status', 'pendente')
+                    .order('data_criacao', { ascending: false });
 
-        if (error) {
-            return res.status(500).json({
-                error: error.message
-            });
-        }
+                if (erroPedidos) {
+                    return res.status(500).json({
+                        error: erroPedidos.message
+                    });
+                }
 
-        return res.status(200).json({
-            pedidos: data
+
+                // Busca todos os bloqueios envolvendo o usuário logado
+                const { data: bloqueios, error: erroBloqueios } = await supabase
+                    .from('bloqueios')
+                    .select('usuario_bloqueador, usuario_bloqueado')
+                    .or(
+                        `usuario_bloqueador.eq.${meuId},usuario_bloqueado.eq.${meuId}`
+                    );
+
+                if (erroBloqueios) {
+                    return res.status(500).json({
+                        error: erroBloqueios.message
+                    });
+                }
+
+
+                // Descobre quais usuários estão bloqueados com relação ao usuário logado
+                const usuariosBloqueados = new Set();
+
+                bloqueios.forEach((bloqueio) => {
+
+                    if (Number(bloqueio.usuario_bloqueador) === Number(meuId)) {
+                        usuariosBloqueados.add(Number(bloqueio.usuario_bloqueado));
+                    }
+
+                    if (Number(bloqueio.usuario_bloqueado) === Number(meuId)) {
+                        usuariosBloqueados.add(Number(bloqueio.usuario_bloqueador));
+                    }
+
+                });
+
+
+                // Remove pedidos de usuários bloqueados
+                const pedidosFiltrados = pedidos.filter((pedido) => {
+                    return !usuariosBloqueados.has(
+                        Number(pedido.usuario_solicitante)
+                    );
+                });
+
+
+                return res.status(200).json({
+                    pedidos: pedidosFiltrados
+                });
+
+
+            } catch (error) {
+
+                console.log(error);
+
+                return res.status(500).json({
+                    mensagem: "Erro interno ao buscar pedidos de amizade."
+                });
+            }
+
         });
-
-    } catch (error) {
-
-        console.log(error);
-
-        return res.status(500).json({
-            mensagem: "Erro interno ao buscar pedidos de amizade."
-        });
-    }
-
-});
 
 
     //Rota para ACEITAR pedidos de amizades(APENAS PARA O USUARIO LOGADO)
@@ -661,6 +735,20 @@ router.post('/amizades', auth, async (req, res) =>{
                 mensagem: "Pedido de amizade não encontrado."
             });
         }
+
+
+       
+
+
+        // Verifica se existe bloqueio entre os usuários
+        const bloqueado = await existeBloqueio(meuId, pedido.usuario_solicitante);
+
+            if (bloqueado) {
+                return res.status(403).json({
+                    mensagem: "Não é possível aceitar este pedido."
+                });
+            }    
+
 
         // Aceita o pedido
         const { data, error } = await supabase
@@ -885,6 +973,215 @@ router.post('/amizades', auth, async (req, res) =>{
     }
 
 });
+
+
+
+
+    //ROTAS DE BLOQUEIOS
+
+    // Bloquear usuário
+    router.post('/bloqueios/:id', auth, async (req, res) => {
+
+        try {
+
+            const meuId = req.usuario.id;
+            const usuarioBloqueado = req.params.id;
+
+            // Não pode bloquear a si mesmo
+            if (Number(meuId) === Number(usuarioBloqueado)) {
+                return res.status(400).json({
+                    mensagem: "Você não pode bloquear a si mesmo."
+                });
+            }
+
+            // Verifica se o usuário existe
+            const { data: usuario, error: erroUsuario } = await supabase
+                .from('usuarios')
+                .select('id')
+                .eq('id', usuarioBloqueado)
+                .maybeSingle();
+
+            if (erroUsuario) {
+                return res.status(500).json({
+                    error: erroUsuario.message
+                });
+            }
+
+            if (!usuario) {
+                return res.status(404).json({
+                    mensagem: "Usuário não encontrado."
+                });
+            }
+
+            // Verifica se já está bloqueado
+            const { data: bloqueioExistente, error: erroBloqueio } = await supabase
+                .from('bloqueios')
+                .select('id')
+                .eq('usuario_bloqueador', meuId)
+                .eq('usuario_bloqueado', usuarioBloqueado)
+                .maybeSingle();
+
+            if (erroBloqueio) {
+                return res.status(500).json({
+                    error: erroBloqueio.message
+                });
+            }
+
+            if (bloqueioExistente) {
+                return res.status(409).json({
+                    mensagem: "Este usuário já está bloqueado."
+                });
+            }
+
+            // Cria o bloqueio
+            const { data, error } = await supabase
+                .from('bloqueios')
+                .insert([{
+                    usuario_bloqueador: meuId,
+                    usuario_bloqueado: usuarioBloqueado
+                }])
+                .select()
+                .single();
+
+            if (error) {
+                return res.status(500).json({
+                    error: error.message
+                });
+            }
+
+            // Remove qualquer amizade ou pedido existente entre os dois
+            const { error: erroAmizade } = await supabase
+                .from('amizades')
+                .delete()
+                .or(
+                    `and(usuario_solicitante.eq.${meuId},usuario_destinatario.eq.${usuarioBloqueado}),and(usuario_solicitante.eq.${usuarioBloqueado},usuario_destinatario.eq.${meuId})`
+                );
+
+            if (erroAmizade) {
+                return res.status(500).json({
+                    error: erroAmizade.message
+                });
+            }
+
+            return res.status(201).json({
+                mensagem: "Usuário bloqueado com sucesso.",
+                bloqueio: data
+            });
+
+        } catch (error) {
+
+            console.log(error);
+
+            return res.status(500).json({
+                mensagem: "Erro interno ao bloquear usuário."
+            });
+        }
+    });
+
+
+    
+    //Rota para Desbloquear usuário
+        router.delete('/bloqueios/:id', auth, async (req, res) => {
+
+            try {
+
+                const meuId = req.usuario.id;
+                const usuarioDesbloqueado = req.params.id;
+
+                const { data: bloqueio, error: erroBusca } = await supabase
+                    .from('bloqueios')
+                    .select('id')
+                    .eq('usuario_bloqueador', meuId)
+                    .eq('usuario_bloqueado', usuarioDesbloqueado)
+                    .maybeSingle();
+
+                if (erroBusca) {
+                    return res.status(500).json({
+                        error: erroBusca.message
+                    });
+                }
+
+                if (!bloqueio) {
+                    return res.status(404).json({
+                        mensagem: "Bloqueio não encontrado."
+                    });
+                }
+
+                const { error } = await supabase
+                    .from('bloqueios')
+                    .delete()
+                    .eq('id', bloqueio.id);
+
+                if (error) {
+                    return res.status(500).json({
+                        error: error.message
+                    });
+                }
+
+                return res.status(200).json({
+                    mensagem: "Usuário desbloqueado com sucesso."
+                });
+
+            } catch (error) {
+
+                console.log(error);
+
+                return res.status(500).json({
+                    mensagem: "Erro interno ao desbloquear usuário."
+                });
+            }
+        });
+        
+        
+
+
+        // Listar usuários bloqueados
+            router.get('/bloqueios', auth, async (req, res) => {
+
+                try {
+
+                    const meuId = req.usuario.id;
+
+                    // Busca os bloqueios feitos pelo usuário logado
+                    const { data: bloqueios, error } = await supabase
+                        .from('bloqueios')
+                        .select(`
+                            id,
+                            usuario_bloqueador,
+                            usuario_bloqueado,
+                            data_criacao,
+                            usuarios!bloqueios_usuario_bloqueado_fkey (
+                                id,
+                                nome_usuario,
+                                email_usuario,
+                                cargo,
+                                foto_perfil
+                            )
+                        `)
+                        .eq('usuario_bloqueador', meuId)
+                        .order('data_criacao', { ascending: false });
+
+                    if (error) {
+                        return res.status(500).json({
+                            error: error.message
+                        });
+                    }
+
+                    return res.status(200).json({
+                        bloqueados: bloqueios
+                    });
+
+                } catch (error) {
+
+                    console.log(error);
+
+                    return res.status(500).json({
+                        mensagem: "Erro interno ao buscar usuários bloqueados."
+                    });
+                }
+
+            });
+
 
 
 
