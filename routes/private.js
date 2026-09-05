@@ -1190,7 +1190,7 @@ router.post('/amizades', auth, async (req, res) =>{
                             usuario_bloqueador,
                             usuario_bloqueado,
                             data_criacao,
-                            usuarios!bloqueios_usuario_bloqueado_fkey (
+                            usuarios!fk_bloqueado (
                                 id,
                                 nome_usuario,
                                 email_usuario,
