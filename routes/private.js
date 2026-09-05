@@ -391,6 +391,46 @@ router.get('/mensagens/:id', auth, async (req, res) => {
 
 
 
+
+// Marca como lidas todas as mensagens recebidas de um contato específico
+router.put('/mensagens/lidas/:id', auth, async (req, res) => {
+
+    try {
+
+        const meuId = req.usuario.id;
+        const idContato = Number(req.params.id);
+
+        const { error } = await supabase
+            .from('mensagens')
+            .update({ lida: true })
+            .eq('cod_remetente', idContato)
+            .eq('cod_destinatario', meuId)
+            .eq('lida', false);
+
+        if (error) {
+            return res.status(500).json({
+                error: error.message
+            });
+        }
+
+        return res.status(200).json({
+            mensagem: "Mensagens marcadas como lidas."
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        return res.status(500).json({
+            mensagem: "Erro interno ao marcar mensagens como lidas."
+        });
+    }
+
+});
+
+
+
+
 //Rota para excluir mensagem selecionada
 router.delete('/mensagens/:id', auth, async (req, res) => {
 
