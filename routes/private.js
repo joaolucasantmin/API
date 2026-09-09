@@ -4,6 +4,7 @@ import supabase from '../config/supabase.js';
 import auth from '../middlewares/auth.js';
 import admin from '../middlewares/admin.js';
 import upload from '../middlewares/upload.js';
+import { filtrarPalavroes } from './utils/filtroPalavroes.js';
 
 const router = express.Router();
 
@@ -205,10 +206,7 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
 
 //ROTAS DE MENSAGENS
     //Rota para envio de mensagens, seja elas com anexo ou não
-    router.post(
-    '/mensagens',
-    auth,
-    (req, res, next) => {
+    router.post('/mensagens', auth, (req, res, next) => {
 
         upload.single("arquivo")(req, res, (err) => {
 
@@ -243,6 +241,11 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
 
             const remetente = req.usuario.id;
             const { destinatario, mensagem } = req.body;
+
+            // Filtra palavrões da mensagem
+            const mensagemFiltrada = mensagem
+                ? filtrarPalavroes(mensagem)
+                : null;
 
 
             console.log("Remetente:", remetente);
@@ -327,7 +330,7 @@ router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
                 .insert([{
                     cod_remetente: remetente,
                     cod_destinatario: destinatario,
-                    mensagem: mensagem || null,
+                    mensagem: mensagemFiltrada,
                     nome_arquivo: nomeArquivo,
                     arquivo_url: arquivoUrl,
                     tipo_arquivo: tipoArquivo
