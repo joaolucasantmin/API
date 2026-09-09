@@ -1,4 +1,4 @@
-import Filter from "bad-words";
+import { Filter } from "bad-words";
 
 const filter = new Filter({
     placeHolder: "*"
