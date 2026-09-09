@@ -1128,6 +1128,7 @@ router.post('/amizades', auth, async (req, res) =>{
                 const meuId = req.usuario.id;
                 const usuarioDesbloqueado = req.params.id;
 
+                // 1. Procura o bloqueio
                 const { data: bloqueio, error: erroBusca } = await supabase
                     .from('bloqueios')
                     .select('id')
@@ -1147,15 +1148,65 @@ router.post('/amizades', auth, async (req, res) =>{
                     });
                 }
 
-                const { error } = await supabase
+                // 2. Remove o bloqueio
+                const { error: erroDesbloqueio } = await supabase
                     .from('bloqueios')
                     .delete()
                     .eq('id', bloqueio.id);
 
-                if (error) {
+                if (erroDesbloqueio) {
                     return res.status(500).json({
-                        error: error.message
+                        error: erroDesbloqueio.message
                     });
+                }
+
+                // 3. Verifica se já existe uma amizade entre os dois
+                const { data: amizade, error: erroAmizade } = await supabase
+                    .from('amizades')
+                    .select('id, status')
+                    .or(
+                        `and(usuario_solicitante.eq.${meuId},usuario_destinatario.eq.${usuarioDesbloqueado}),and(usuario_solicitante.eq.${usuarioDesbloqueado},usuario_destinatario.eq.${meuId})`
+                    )
+                    .maybeSingle();
+
+                if (erroAmizade) {
+                    return res.status(500).json({
+                        error: erroAmizade.message
+                    });
+                }
+
+                // 4. Se já existe amizade, coloca como aceita
+                if (amizade) {
+
+                    const { error: erroAtualizacao } = await supabase
+                        .from('amizades')
+                        .update({
+                            status: 'aceito'
+                        })
+                        .eq('id', amizade.id);
+
+                    if (erroAtualizacao) {
+                        return res.status(500).json({
+                            error: erroAtualizacao.message
+                        });
+                    }
+
+                } else {
+
+                    // 5. Se não existe, cria a amizade novamente
+                    const { error: erroNovaAmizade } = await supabase
+                        .from('amizades')
+                        .insert({
+                            usuario_solicitante: meuId,
+                            usuario_destinatario: usuarioDesbloqueado,
+                            status: 'aceito'
+                        });
+
+                    if (erroNovaAmizade) {
+                        return res.status(500).json({
+                            error: erroNovaAmizade.message
+                        });
+                    }
                 }
 
                 return res.status(200).json({
