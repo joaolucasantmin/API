@@ -21,8 +21,7 @@ const auth = (req, res, next) =>{
         JWT_SECRET
     );
 
-    console.log("TOKEN DECODIFICADO:");
-    console.log(decoded);
+    
 
     req.usuario = decoded;
 
