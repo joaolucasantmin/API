@@ -32,11 +32,13 @@ const palavrasPortugues = [
     "idiotice", "lerdo", "lerda", "mané", "mane", "trouxa",
     "paspalho", "paspalha", "mocorongo", "mocoronga", "jumento", "jumenta",
     "nojento", "nojenta", "escroto", "escrota", "canalha", "meliante",
-    "vagal", "zicado", "zicada",
+    "vagal", "zicado", "zicada", "putao", "putona", "hitler","abusado", "molestado",
+    "abusadao", "molestadao", "estrupado", "estrupadao", "gozadao", "gozador",
+
 
     // --- expansão (vulgaridades/xingamentos comuns) ---
     "bacurinha", "baitola", "bichinha", "bichona", "bicha",
-    "bilau", "bixa", "boceta", "boceta-molhada", "bolcinha",
+     "bilau", "bixa", "boceta", "boceta-molhada", "bolcinha",
     "bolsinha", "boiolao", "boquete", "boquetes", "boqueteira",
     "boqueteiro", "brecheca", "brocha", "brochado", "broche",
     "broxa", "broxeira", "bucefula", "buceta", "bucetao",
