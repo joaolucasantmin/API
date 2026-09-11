@@ -2,11 +2,15 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import supabase from '../config/supabase.js';
+import { createOtp, verifyOtp } from '../lib/otp.js';
+import { sendEmail } from '../lib/email.js';
 
 const router = express.Router();
 
 
-//Rota de Cadastro (POST)
+// ======================================================
+// ROTA: Cadastro (POST)
+// ======================================================
 router.post('/cadastro', async (req, res) => {
 
     try {
@@ -57,7 +61,6 @@ router.post('/cadastro', async (req, res) => {
                 nome_usuario: user.nome_usuario,
                 email_usuario: user.email_usuario,
                 senha_usuario: senhaHash,
-                
             }])
             .select();
 
@@ -67,9 +70,7 @@ router.post('/cadastro', async (req, res) => {
             });
         }
 
-
-
-        //Adiciona o Adilson(Nosso Cliente/Técnico) automaticamente como amigo
+        // Adiciona o Adilson (Cliente/Técnico) automaticamente como amigo
         const novoUsuarioId = data[0].id;
 
         const { error: erroAmizade } = await supabase
@@ -85,7 +86,6 @@ router.post('/cadastro', async (req, res) => {
                 error: erroAmizade.message
             });
         }
-        
 
         return res.status(201).json(data);
 
@@ -100,12 +100,14 @@ router.post('/cadastro', async (req, res) => {
 });
 
 
-//Rota de Login
-router.post('/login', async (req, res) =>{
+// ======================================================
+// ROTA: Login (POST)
+// ======================================================
+router.post('/login', async (req, res) => {
     try {
-        const {email_usuario, senha_usuario} = req.body;
+        const { email_usuario, senha_usuario } = req.body;
 
-        if(!email_usuario || !senha_usuario){
+        if (!email_usuario || !senha_usuario) {
             return res.status(400).json({
                 error: "Informe e-mail e senha!"
             });
@@ -117,44 +119,44 @@ router.post('/login', async (req, res) =>{
             .eq('email_usuario', email_usuario)
             .single();
 
-        //Caso usuario for inválido informar erro    
-        if(error || !usuario){
+        // Caso usuário for inválido, informar erro
+        if (error || !usuario) {
             return res.status(401).json({
                 error: "e-mail ou senha inválidos!"
             });
         }
 
-        //Comparando senha no banco com a digitada
+        // Comparando senha no banco com a digitada
         const senhaCorreta = await bcrypt.compare(
             senha_usuario,
             usuario.senha_usuario
         );
 
-        //Se senha incorreta
-        if(!senhaCorreta){
+        // Se senha incorreta
+        if (!senhaCorreta) {
             return res.status(401).json({
                 error: "e-mail ou senha inválidos!"
             });
         }
 
-        //Gerar Token JWT
+        // Gerar Token JWT
         const token = jwt.sign(
             {
                 id: usuario.id,
                 email: usuario.email_usuario,
                 cargo: usuario.cargo
-        },
-        process.env.JWT_SECRET,
-        {
-            expiresIn: "7d"
-        }
-    );
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: "7d"
+            }
+        );
 
-        //Retornando caso Login realizado com sucesso
+        // Retornando caso Login realizado com sucesso
         return res.status(200).json({
             message: "Login realizado com sucesso!",
             token,
-            usuario:{
+            usuario: {
                 id: usuario.id,
                 nome_usuario: usuario.nome_usuario,
                 email_usuario: usuario.email_usuario,
@@ -162,9 +164,118 @@ router.post('/login', async (req, res) =>{
             }
         });
 
+    } catch (error) {
+        res.status(500).json({ message: 'Erro no Servidor!' });
+    }
+});
+
+
+// ======================================================
+// ROTA: Enviar código OTP para verificação de e-mail
+// POST /API/otp/send
+// ======================================================
+router.post('/otp/send', async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email || !/^.+@.+$/.test(email)) {
+            return res.status(400).json({
+                error: 'E-mail inválido.'
+            });
+        }
+
+        // (Opcional) Bloqueia se o e-mail já estiver cadastrado
+        const { data: existente, error: erroBusca } = await supabase
+            .from('usuarios')
+            .select('id')
+            .eq('email_usuario', email)
+            .maybeSingle();
+
+        if (erroBusca) {
+            return res.status(500).json({
+                error: erroBusca.message
+            });
+        }
+
+        if (existente) {
+            return res.status(409).json({
+                error: 'Este e-mail já está cadastrado.'
+            });
+        }
+
+        const code = createOtp(email);
+
+        await sendEmail(
+            email,
+            'Seu código de verificação',
+            `
+                <div style="font-family:sans-serif;max-width:400px">
+                  <h2>Verificação de e-mail</h2>
+                  <p>Seu código é:</p>
+                  <p style="font-size:32px;font-weight:bold;letter-spacing:8px">${code}</p>
+                  <p style="color:#666">Válido por 5 minutos.</p>
+                  <p style="color:#999;font-size:12px">Se você não solicitou este código, ignore este e-mail.</p>
+                </div>
+            `
+        );
+
+        return res.status(200).json({
+            message: 'Código enviado com sucesso!'
+        });
 
     } catch (error) {
-        res.status(500).json({message: 'Erro no Servidor!'})
+
+        if (error.message === 'RATE_LIMITED') {
+            return res.status(429).json({
+                error: 'Muitos envios. Tente novamente mais tarde.'
+            });
+        }
+
+        return res.status(500).json({
+            message: error.message
+        });
+    }
+});
+
+
+// ======================================================
+// ROTA: Verificar código OTP
+// POST /API/otp/verify
+// ======================================================
+router.post('/otp/verify', async (req, res) => {
+    try {
+        const { email, code } = req.body;
+
+        if (!email || !code) {
+            return res.status(400).json({
+                error: 'Informe e-mail e código.'
+            });
+        }
+
+        const result = verifyOtp(email, code);
+
+        if (result.valid) {
+            return res.status(200).json({
+                message: 'E-mail verificado com sucesso!',
+                verificado: true
+            });
+        }
+
+        const mensagens = {
+            NOT_FOUND: 'Código não encontrado ou expirado.',
+            EXPIRED: 'Código expirado. Solicite um novo.',
+            TOO_MANY_ATTEMPTS: 'Muitas tentativas. Solicite um novo código.',
+            INVALID: `Código incorreto. Restam ${result.remaining} tentativas.`,
+        };
+
+        return res.status(400).json({
+            error: mensagens[result.reason]
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message
+        });
     }
 });
 
