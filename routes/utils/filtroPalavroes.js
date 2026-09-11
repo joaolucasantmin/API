@@ -33,12 +33,13 @@ const palavrasPortugues = [
     "paspalho", "paspalha", "mocorongo", "mocoronga", "jumento", "jumenta",
     "nojento", "nojenta", "escroto", "escrota", "canalha", "meliante",
     "vagal", "zicado", "zicada", "putao", "putona", "hitler","abusado", "molestado",
-    "abusadao", "molestadao", "estrupado", "estrupadao", "gozadao", "gozador",
+    "abusadao", "molestadao", "estrupado", "estrupadao", "gozadao", "gozador", "Veloso",
+    "debiloide",
 
 
-    // --- expansão (vulgaridades/xingamentos comuns) ---
+    //(vulgaridades/xingamentos comuns) ---
     "bacurinha", "baitola", "bichinha", "bichona", "bicha",
-     "bilau", "bixa", "boceta", "boceta-molhada", "bolcinha",
+    "bilau", "bixa", "boceta", "boceta-molhada", "bolcinha",
     "bolsinha", "boiolao", "boquete", "boquetes", "boqueteira",
     "boqueteiro", "brecheca", "brocha", "brochado", "broche",
     "broxa", "broxeira", "bucefula", "buceta", "bucetao",
@@ -96,7 +97,10 @@ const palavrasPortugues = [
     "rola", "caralho", "punhetar", "cagar", "cagao", "cagão",
     "fudida", "fudeu", "fuder", "peidar", "masturbação",
     "masturbacao", "testículo", "testiculo", "clitóris", "clitoris",
-    "pênis", "penis", "vagina", "vulva", "ânus", "anus"
+    "pênis", "penis", "vagina", "vulva", "ânus", "anus", "aborto", 
+    "escurinho", "xxxx", "bucetudo", "bucetuda", "caralhinhos",
+    "makako", "makaka", "satanico", "molhadinho", "anal", "neguinho",
+    "nigga", "nigger",
 ];
 
 
