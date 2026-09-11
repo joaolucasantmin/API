@@ -7,8 +7,6 @@ const filter = new Filter({
 
 // ======================================================
 // PALAVRAS E ABREVIAÇÕES EM PORTUGUÊS
-// (lista expandida — filtro 1: correspondência exata/com
-//  fronteira de palavra, feita pela lib bad-words)
 // ======================================================
 
 const palavrasPortugues = [
@@ -22,72 +20,104 @@ const palavrasPortugues = [
 
     // abreviações
     "fds", "vsf", "pqp", "tnc", "vtnc", "tmnc",
+    "f.d.s", "f.ds", "fd.s", "f_d_s", "fd_s", "f_ds",
+    "f-d-s", "f,d,s", "v.s.f", "krl", "krlh", "crl", "crlh",
+    "pq", "poha", "carai", "kct", "cct", "vsfd", "vsfdp",
+
 
     // ofensas
     "idiota", "imbecil", "retardado", "retardada", "burro", "burra",
+    "anta", "panaca", "otária", "otaria", "cretino", "cretina",
+    "demente", "debilmental", "estúpido", "estupido", "estúpida", "estupida",
+    "idiotice", "lerdo", "lerda", "mané", "mane", "trouxa",
+    "paspalho", "paspalha", "mocorongo", "mocoronga", "jumento", "jumenta",
+    "nojento", "nojenta", "escroto", "escrota", "canalha", "meliante",
+    "vagal", "zicado", "zicada",
 
     // --- expansão (vulgaridades/xingamentos comuns) ---
-    "anta", "arrombada", "babaca", "bacurinha", "baitola",
-    "bichinha", "bichona", "bilau", "bixa", "boceta",
-    "boceta-molhada", "bolcinha", "bolsinha", "boiolao",
-    "boquete", "boquetes", "boqueteira", "boqueteiro",
-    "brecheca", "brocha", "brochado", "broche", "broxa",
-    "broxeira", "bucefula", "buceta", "bucetao", "bucetas",
-    "bucetinha", "bucetona", "bunda", "bundao", "bundona",
-    "cabra", "cabrao", "cachorra", "cachuleta", "cadela",
-    "cafetao", "cafetina", "cagalhao", "carai", "caraio",
-    "caralha", "caralhudo", "cassete", "cequelada", "chatico",
-    "chavasca", "checheca", "chereca", "chibio", "chifrudo",
-    "chimbica", "chupa-pau", "chupada", "chupador", "chupadora",
-    "chupando", "chupeta", "chupetinha", "chupou", "comedor",
-    "comedora", "comilona", "corna", "cornao", "corpao",
-    "corpo-de-sereia", "crossdresser", "cuecao", "custozinha",
-    "cuzao", "cuzinho", "dadeira", "debilmental",
+    "bacurinha", "baitola", "bichinha", "bichona", "bicha",
+    "bilau", "bixa", "boceta", "boceta-molhada", "bolcinha",
+    "bolsinha", "boiolao", "boquete", "boquetes", "boqueteira",
+    "boqueteiro", "brecheca", "brocha", "brochado", "broche",
+    "broxa", "broxeira", "bucefula", "buceta", "bucetao",
+    "bucetas", "bucetinha", "bucetona", "bunda", "bundao",
+    "bundona", "cabrao", "cachorra", "cachuleta", "cadela",
+    "cafetao", "cafetina", "cagalhao", "caraio", "caralha",
+    "caralhudo", "cassete", "cequelada", "chatico", "chavasca",
+    "checheca", "chereca", "chibio", "chifrudo", "chimbica",
+    "chupa-pau", "chupada", "chupador", "chupadora", "chupando",
+    "chupeta", "chupetinha", "chupou", "comedor", "comedora",
+    "comilona", "corna", "cornao", "corpao", "corpo-de-sereia",
+    "crossdresser", "cuecao", "custozinha", "cuzinho", "dadeira",
     "delicia-de-corpo", "desgraca", "devassa", "devasso",
     "encoxada", "engolidor", "engolidora", "enrabadas",
-    "enrustida", "enrustido", "escrota", "escrotinho", "escroto",
-    "estuprador", "estupradora", "filhodaputa", "fornicada",
-    "frescao", "fresco", "frescura", "fudendo", "fudido",
-    "furustreca", "garota-de-programa", "garoto-de-programa",
-    "gostosao", "gostosona", "gostozudas", "gozada", "gozadas",
-    "gozar", "gozo", "greludas", "gulosinha", "jumento",
-    "katchanga", "ladra", "ladrao", "lambeaba", "lambe-saco",
-    "lambisgoia", "lamedor", "larapio", "lasciva", "lascivo",
-    "lesbofetiche", "libidinosa", "libidinoso", "lixa-pica",
-    "machona", "machorra", "masturbacao", "masturbar",
-    "mede-rola", "megasex", "mela-pentelho", "meleca",
-    "melequinha", "menage", "merdao", "meretriz", "metendo",
-    "michê", "mijada", "mongoloide", "nojenta", "nojento",
-    "panaca", "papa-duro", "pausudas", "pechereca", "pedofila",
-    "pedofilo", "peidao", "peido", "peidorreiro", "peitao",
-    "peitona", "peituda", "peitudas", "periquita", "pica",
-    "pinto", "piranhao", "piranhuda", "piriguetes", "piroca",
-    "pirocao", "pirocudo", "pirulito", "pitbitoca", "pitchbicha",
-    "pithbicha", "pitibicha", "pitrica", "pixota",
-    "pornografica", "pornografico", "prencheca", "prexeca",
-    "priquita", "priquito", "proxeneta", "punheta", "punhetao",
-    "punheteira", "punheteiro", "pussy", "putaria", "putinha",
+    "enrustida", "enrustido", "escrotinho", "estuprador",
+    "estupradora", "fornicada", "frescao", "fresco", "frescura",
+    "fudendo", "fudido", "fudida", "furustreca",
+    "garota-de-programa", "garoto-de-programa", "gostosao",
+    "gostosona", "gostozudas", "gozada", "gozadas", "gozar",
+    "gozo", "greludas", "gulosinha", "katchanga", "ladra",
+    "ladrao", "lambeaba", "lambe-saco", "lambisgoia", "lamedor",
+    "larapio", "lasciva", "lascivo", "lesbofetiche", "libidinosa",
+    "libidinoso", "lixa-pica", "machona", "machorra",
+    "masturbacao", "masturbar", "mede-rola", "megasex",
+    "mela-pentelho", "meleca", "melequinha", "menage", "merdao",
+    "meretriz", "metendo", "michê", "mijada", "mijao", "mijar",
+    "mongoloide", "orgia", "bacanal", "papa-duro", "pausudas",
+    "pechereca", "pedofila", "pedofilo", "peidao", "peido",
+    "peidorreiro", "peitao", "peitona", "peituda", "peitudas",
+    "pênis", "penis", "periquita", "perereca", "pepeca",
+    "pica", "pinto", "piranhao", "piranhuda", "piriguete",
+    "piriguetes", "piroca", "pirocao", "pirocudo", "pirulito",
+    "pitbitoca", "pitchbicha", "pithbicha", "pitibicha",
+    "pitrica", "pixota", "pornografica", "pornografico",
+    "prencheca", "prexeca", "priquita", "priquito", "prostituta",
+    "prostituto", "proxeneta", "punheta", "punhetao", "punheteira",
+    "punheteiro", "pussy", "putaria", "putinha",
     "putinha-de-luxo", "quenga", "rabao", "rabuda", "rabudas",
     "rameira", "rapariga", "saca-rola", "safada", "safadinha",
-    "safadinho", "safado", "sapatao", "sapatona", "sequelada",
-    "sexboys", "sexgatas", "siliconada", "sirica", "siririca",
-    "siririquenta", "sotravesti", "suruba", "surubas", "taioba",
-    "tarada", "tarado", "tchaca", "tcheca", "tchonga",
+    "safadinho", "safado", "sapatao", "sapatona", "sapatão",
+    "sequelada", "sexboys", "sexgatas", "siliconada", "sirica",
+    "siririca", "siririquenta", "sotravesti", "suruba", "surubas",
+    "taioba", "tarada", "tarado", "tchaca", "tcheca", "tchonga",
     "tchuchuca", "tchutchuca", "tesao", "tesuda", "tesudas",
     "tesudo", "tetinha", "tezao", "tezuda", "tezudo", "tgatas",
     "tobinha", "tomba-macho", "topsexy", "transa", "transando",
     "traveca", "travecas", "traveco", "travecos", "trepada",
     "trepadas", "vaca", "vacilao", "vadjaina", "vagabundao",
     "vagabundona", "vaginismo", "vajoca", "veiaca", "veiaco",
-    "viadao", "viadinho", "xabasca", "xana", "xaninha",
-    "xatico", "xavasca", "xebreca", "xereca", "xexeca",
-    "xexelento", "xibio", "xoroca", "xota", "xota-molhada",
-    "xotinha", "xoxota", "xoxotinha", "xulipa", "xumbrega",
-    "xupaxota", "xupeta", "xupetinha", "pinto", "rola",
-    "corno"
+    "viadao", "viadinho", "viadagem", "vibrador", "xabasca",
+    "xana", "xaninha", "xatico", "xavasca", "xebreca", "xereca",
+    "xexeca", "xexelento", "xibio", "xibiu", "xoroca", "xota",
+    "xota-molhada", "xotinha", "xoxota", "xoxotinha", "xulipa",
+    "xumbrega", "xupaxota", "xupeta", "xupetinha", "pau",
+    "rola", "caralho", "punhetar", "cagar", "cagao", "cagão",
+    "fudida", "fudeu", "fuder", "peidar", "masturbação",
+    "masturbacao", "testículo", "testiculo", "clitóris", "clitoris",
+    "pênis", "penis", "vagina", "vulva", "ânus", "anus"
 ];
 
-filter.addWords(...palavrasPortugues);
+
+// ======================================================
+// NORMALIZA A LISTA (remove acentos + duplicatas)
+// para o bad-words pegar tanto "otário" quanto "otario"
+// ======================================================
+
+const listaNormalizada = new Set();
+
+for (const palavra of palavrasPortugues) {
+
+    const minuscula = palavra.toLowerCase();
+
+    const semAcento = minuscula
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+    listaNormalizada.add(minuscula);
+    listaNormalizada.add(semAcento);
+}
+
+filter.addWords(...listaNormalizada);
 
 
 // ======================================================
@@ -119,8 +149,8 @@ function normalizarTexto(texto) {
         .replace(/@/g, "a")
         .replace(/\$/g, "s")
         .replace(/!/g, "i")
-        .replace(/\(/g, "c")   // <- faltava: "(" costuma substituir "c"
-        .replace(/\|/g, "i");  // <- faltava: "|" costuma substituir "i"
+        .replace(/\(/g, "c")
+        .replace(/\|/g, "i");
 }
 
 
@@ -136,25 +166,27 @@ function normalizarParaComparacao(texto) {
 
 
 // ======================================================
-// PRÉ-COMPILA OS PADRÕES DE DISFARCE (uma única vez,
-// fora da função principal — isso é o que mais pesava
-// na performance antes, pois recalculava tudo a cada
-// mensagem enviada)
+// PRÉ-COMPILA OS PADRÕES DE DISFARCE
 // ======================================================
 
 // Tamanho mínimo para entrar no scanner de disfarces.
-// Palavras muito curtas (ex: "cu") ficam só no filtro 1
-// (bad-words, que já exige fronteira de palavra), porque
-// no scanner de disfarces elas dariam muito falso positivo
-// (ex.: "cu" apareceria dentro de "cuidado", "recurso" etc.)
+// Palavras muito curtas (ex: "cu", "pau") ficam só no
+// filtro 1 (bad-words, que já exige fronteira de palavra),
+// porque no scanner de disfarces elas dariam muito
+// falso positivo (ex.: "cu" dentro de "cuidado").
 const TAMANHO_MINIMO_DISFARCE = 4;
+
+// Palavras com até esse tamanho exigem fronteira de palavra
+// no texto original para evitar falsos positivos como
+// "bunda" dentro de "abundância" ou "pica" dentro de "picante".
+const TAMANHO_FRONTEIRA_OBRIGATORIA = 5;
 
 const padroesDisfarce = (() => {
 
     const vistos = new Set();
     const padroes = [];
 
-    for (const palavra of palavrasPortugues) {
+    for (const palavra of listaNormalizada) {
 
         const normalizada = normalizarParaComparacao(palavra);
 
@@ -170,12 +202,18 @@ const padroesDisfarce = (() => {
         // Cada letra vira "letra+", permitindo que o mesmo
         // caractere se repita (ex.: "puuuta", "safaadoo")
         // sem precisar mexer no mapeamento de posições.
-        const padraoRegex = normalizada
+        const corpo = normalizada
             .split("")
             .map((letra) => `${letra}+`)
             .join("");
 
-        padroes.push(new RegExp(padraoRegex, "g"));
+        // Palavras curtas exigem fronteira de palavra no texto
+        // original (não podem estar coladas a outras letras).
+        const fonte = normalizada.length <= TAMANHO_FRONTEIRA_OBRIGATORIA
+            ? `(?<![a-z])${corpo}(?![a-z])`
+            : corpo;
+
+        padroes.push(new RegExp(fonte, "g"));
     }
 
     return padroes;
@@ -239,13 +277,21 @@ export function filtrarPalavroes(texto) {
             const indiceInicial = match.index;
             const indiceFinal = indiceInicial + match[0].length - 1;
 
+            // valida que os índices existem no mapa 
+            if (
+                indiceInicial < 0 ||
+                indiceFinal >= mapaPosicoes.length
+            ) {
+                if (match[0].length === 0) padrao.lastIndex++;
+                continue;
+            }
+
             palavrasDetectadas.push({
                 inicio: mapaPosicoes[indiceInicial],
                 fim: mapaPosicoes[indiceFinal]
             });
 
-            // evita loop infinito em match de tamanho 0 (não deve
-            // acontecer aqui, mas é uma proteção barata)
+            // evita loop infinito em match de tamanho 0
             if (match[0].length === 0) {
                 padrao.lastIndex++;
             }
