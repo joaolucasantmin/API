@@ -100,7 +100,9 @@ const palavrasPortugues = [
     "pênis", "penis", "vagina", "vulva", "ânus", "anus", "aborto", 
     "escurinho", "xxxx", "bucetudo", "bucetuda", "caralhinhos",
     "makako", "makaka", "satanico", "molhadinho", "anal", "neguinho",
-    "nigga", "nigger","xvideos", "pornhub",
+    "nigga", "nigger","xvideos", "pornhub", "cuceta", "cusseta", 
+    "xhamster", "rule34", "hentai", "eroge", "erotico", "bussanha", 
+    "pacotudo", "pacoteira", "sacudo", "sixseven", 
 ];
 
 
