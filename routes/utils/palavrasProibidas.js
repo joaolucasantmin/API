@@ -82,14 +82,14 @@ export const palavrasPortugues = [
     "masturbacao", "testículo", "testiculo", "clitóris", "clitoris",
     "pênis", "penis", "vagina", "vulva", "ânus", "anus", "aborto", 
     "escurinho", "xxxx", "bucetudo", "bucetuda", "caralhinhos",
-    "makako", "makaka", "satanico", "molhadinho", "anal", "neguinho",
+    "makako", "makaka", "satanico", "molhadinho", "molhadinha", "anal", "neguinho",
     "nigga", "nigger","xvideos", "pornhub", "cuceta", "cusseta", 
     "xhamster", "rule34", "hentai", "eroge", "erotico", "bussanha", 
-    "pacotudo", "pacoteira", "sacudo", "sixseven", "pomperismo", 
+    "pacotudo", "pacoteira", "sacudo", "sixseven", "pomperismo", "xuca",
+    "fode", "molestar", "molestando",
 ];
 export const abreviacoes = [
  "fds", "vsf", "pqp", "tnc", "vtnc", "tmnc",
-    "f.d.s", "f.ds", "fd.s", "f_d_s", "fd_s", "f_ds",
-    "f-d-s", "f,d,s", "v.s.f", "krl", "krlh", "crl", "crlh",
+    "fds", "krl", "krlh", "crl", "crlh",
     "pq", "poha", "carai", "kct", "cct", "vsfd", "vsfdp",
 ];
