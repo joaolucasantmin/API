@@ -1,5 +1,5 @@
 import { Filter } from "bad-words";
-import { palavrasPortugues, abreviacoes } from "./palavras.js";
+import { palavrasPortugues, abreviacoes } from "./palavrasProibidas.js";
 
 const filter = new Filter({ placeHolder: "*" });
 
