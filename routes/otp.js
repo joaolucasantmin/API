@@ -22,7 +22,8 @@ router.post("/otp/send", async (req, res) => {
       return res.status(400).json({ error: "E-mail inválido" });
     }
 
-    const code = createOtp(email);
+    // ✅ await adicionado — createOtp agora é assíncrona (Supabase)
+    const code = await createOtp(email);
 
     await sendEmail(
       email,
@@ -42,34 +43,40 @@ router.post("/otp/send", async (req, res) => {
     if (err.message === "RATE_LIMITED") {
       return res.status(429).json({ error: "Muitos envios. Tente mais tarde." });
     }
+    if (err.message === "DB_ERROR") {
+      return res.status(500).json({ error: "Erro interno ao gerar código." });
+    }
     console.error(err);
     res.status(500).json({ error: "Falha ao enviar" });
   }
 });
 
 // POST /API/otp/verify
-router.post("/otp/verify", (req, res) => {
-  const { email, code } = req.body;
+router.post("/otp/verify", async (req, res) => {
+  try {
+    const { email, code } = req.body;
 
-  if (!email || !code) {
-    return res.status(400).json({ error: "Dados faltando" });
+    if (!email || !code) {
+      return res.status(400).json({ error: "Dados faltando" });
+    }
+    const result = await verifyOtp(email, code);
+
+    if (result.valid) {
+      return res.json({ ok: true });
+    }
+
+    const messages = {
+      NOT_FOUND: "Código não encontrado ou expirado",
+      EXPIRED: "Código expirado",
+      TOO_MANY_ATTEMPTS: "Muitas tentativas. Gere um novo código.",
+      INVALID: `Código errado. Restam ${result.remaining} tentativas.`,
+    };
+
+    res.status(400).json({ error: messages[result.reason] || "Erro ao verificar" });
+  } catch (err) {
+    console.error("Erro na rota /otp/verify:", err);
+    res.status(500).json({ error: "Erro interno ao verificar código." });
   }
-
-  const result = verifyOtp(email, code);
-
-  if (result.valid) {
-    return res.json({ ok: true });
-  }
-
-  const messages = {
-    NOT_FOUND: "Código não encontrado ou expirado",
-    EXPIRED: "Código expirado",
-    TOO_MANY_ATTEMPTS: "Muitas tentativas. Gere um novo código.",
-    INVALID: `Código errado. Restam ${result.remaining} tentativas.`,
-  };
-
-  res.status(400).json({ error: messages[result.reason] });
 });
 
 export default router;
-//para testar: https://chatames.onrender.com/login
