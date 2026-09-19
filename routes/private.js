@@ -108,6 +108,97 @@ router.delete('/usuarios/:id', auth, admin, async (req, res) => {
 });
 
 
+// ======================================================
+// ROTAS ADMIN: Solicitações de troca de senha
+// ======================================================
+
+// Lista as solicitações pendentes (nome, e-mail e telefone do usuário)
+router.get('/admin/solicitacoes-senha', auth, admin, async (req, res) => {
+
+    const { data, error } = await supabase
+        .from('solicitacoes_senha')
+        .select('id, telefone, status, criado_em, usuario_id, usuarios(nome_usuario, email_usuario)')
+        .eq('status', 'pendente')
+        .order('criado_em', { ascending: true });
+
+    if (error) {
+        return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({ solicitacoes: data });
+});
+
+
+// Admin define a nova senha do usuário e marca a solicitação como atendida
+router.put('/admin/solicitacoes-senha/:id', auth, admin, async (req, res) => {
+
+    const { id } = req.params;
+    const { novaSenha } = req.body;
+
+    if (!novaSenha || novaSenha.length < 6) {
+        return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
+    }
+
+    const { data: solicitacao, error: erroBusca } = await supabase
+        .from('solicitacoes_senha')
+        .select('id, usuario_id, status')
+        .eq('id', id)
+        .maybeSingle();
+
+    if (erroBusca || !solicitacao) {
+        return res.status(404).json({ error: 'Solicitação não encontrada.' });
+    }
+
+    if (solicitacao.status === 'atendida') {
+        return res.status(400).json({ error: 'Essa solicitação já foi atendida.' });
+    }
+
+    const senhaHash = await bcrypt.hash(novaSenha, 10);
+
+    const { error: erroSenha } = await supabase
+        .from('usuarios')
+        .update({ senha_usuario: senhaHash })
+        .eq('id', solicitacao.usuario_id);
+
+    if (erroSenha) {
+        return res.status(500).json({ error: 'Erro ao atualizar a senha.' });
+    }
+
+    const { error: erroStatus } = await supabase
+        .from('solicitacoes_senha')
+        .update({
+            status: 'atendida',
+            atendido_em: new Date().toISOString(),
+            atendido_por: req.usuario.id
+        })
+        .eq('id', id);
+
+    if (erroStatus) {
+        return res.status(500).json({ error: 'Senha alterada, mas houve erro ao atualizar a solicitação.' });
+    }
+
+    return res.status(200).json({ message: 'Nova senha definida com sucesso!' });
+});
+
+
+// Descarta uma solicitação sem alterar a senha (ex: pedido duplicado/engano)
+router.delete('/admin/solicitacoes-senha/:id', auth, admin, async (req, res) => {
+
+    const { id } = req.params;
+
+    const { error } = await supabase
+        .from('solicitacoes_senha')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({ message: 'Solicitação removida.' });
+});
+
+
 //Rota de alteração de perfil(PUT)
 router.put("/perfil", auth, upload.single("foto_perfil"), async (req, res) => {
 

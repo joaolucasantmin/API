@@ -2,7 +2,6 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import supabase from '../config/supabase.js';
-import { createOtp, verifyOtp } from '../lib/otp.js';
 import { sendEmail } from '../lib/email.js';
 import { criarTokenReset, validarTokenReset, consumirTokenReset } from '../lib/senhaReset.js';
 
@@ -72,13 +71,13 @@ router.post('/cadastro', async (req, res) => {
         }
 
         // Adiciona o Adilson (Cliente/Técnico) automaticamente como amigo
-        const novoUsuarioId = data[0].id;
+        const novoUsuario = data[0];
 
         const { error: erroAmizade } = await supabase
             .from('amizades')
             .insert([{
                 usuario_solicitante: 44,
-                usuario_destinatario: novoUsuarioId,
+                usuario_destinatario: novoUsuario.id,
                 status: 'aceito'
             }]);
 
@@ -88,7 +87,30 @@ router.post('/cadastro', async (req, res) => {
             });
         }
 
-        return res.status(201).json(data);
+        // Gera o token já no cadastro, para logar o usuário automaticamente
+        // (não há mais verificação de e-mail bloqueando o acesso)
+        const token = jwt.sign(
+            {
+                id: novoUsuario.id,
+                email: novoUsuario.email_usuario,
+                cargo: novoUsuario.cargo
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: "7d"
+            }
+        );
+
+        return res.status(201).json({
+            message: 'Cadastro realizado com sucesso!',
+            token,
+            usuario: {
+                id: novoUsuario.id,
+                nome_usuario: novoUsuario.nome_usuario,
+                email_usuario: novoUsuario.email_usuario,
+                foto_usuario: novoUsuario.foto_usuario
+            }
+        });
 
     } catch (error) {
 
@@ -172,117 +194,6 @@ router.post('/login', async (req, res) => {
 
 
 // ======================================================
-// ROTA: Enviar código OTP para verificação de e-mail
-// POST /API/otp/send
-// ======================================================
-router.post('/otp/send', async (req, res) => {
-    try {
-        const { email } = req.body;
-
-        if (!email || !/^.+@.+$/.test(email)) {
-            return res.status(400).json({
-                error: 'E-mail inválido.'
-            });
-        }
-
-        // (Opcional) Bloqueia se o e-mail já estiver cadastrado
-        const { data: existente, error: erroBusca } = await supabase
-            .from('usuarios')
-            .select('id')
-            .eq('email_usuario', email)
-            .maybeSingle();
-
-        if (erroBusca) {
-            return res.status(500).json({
-                error: erroBusca.message
-            });
-        }
-
-        //Comentada pois ocasianava bug em cadastro de contas
-        //if (existente) {
-        //    return res.status(409).json({
-        //        error: 'Este e-mail já está cadastrado.'
-        //    });
-        //}
-
-        const code = await createOtp(email);
-
-        await sendEmail(
-            email,
-            'Seu código de verificação',
-            `
-                <div style="font-family:sans-serif;max-width:400px">
-                  <h2>Verificação de e-mail</h2>
-                  <p>Seu código é:</p>
-                  <p style="font-size:32px;font-weight:bold;letter-spacing:8px">${code}</p>
-                  <p style="color:#666">Válido por 5 minutos.</p>
-                  <p style="color:#999;font-size:12px">Se você não solicitou este código, ignore este e-mail.</p>
-                </div>
-            `
-        );
-
-        return res.status(200).json({
-            message: 'Código enviado com sucesso!'
-        });
-
-    } catch (error) {
-
-        if (error.message === 'RATE_LIMITED') {
-            return res.status(429).json({
-                error: 'Muitos envios. Tente novamente mais tarde.'
-            });
-        }
-
-        return res.status(500).json({
-            message: error.message
-        });
-    }
-});
-
-
-// ======================================================
-// ROTA: Verificar código OTP
-// POST /API/otp/verify
-// ======================================================
-router.post('/otp/verify', async (req, res) => {
-    try {
-        const { email, code } = req.body;
-
-        if (!email || !code) {
-            return res.status(400).json({
-                error: 'Informe e-mail e código.'
-            });
-        }
-
-        const result = await verifyOtp(email, code);
-
-        if (result.valid) {
-            return res.status(200).json({
-                message: 'E-mail verificado com sucesso!',
-                verificado: true
-            });
-        }
-
-        const mensagens = {
-            NOT_FOUND: 'Código não encontrado ou expirado.',
-            EXPIRED: 'Código expirado. Solicite um novo.',
-            TOO_MANY_ATTEMPTS: 'Muitas tentativas. Solicite um novo código.',
-            INVALID: `Código incorreto. Restam ${result.remaining} tentativas.`,
-        };
-
-        return res.status(400).json({
-            error: mensagens[result.reason]
-        });
-
-    } catch (error) {
-        return res.status(500).json({
-            message: error.message
-        });
-    }
-});
-
-
-// ======================================================
 // ROTA: Solicitar reset de senha (envia link por e-mail)
 // POST /API/senha/solicitar
 // ======================================================
@@ -346,6 +257,78 @@ router.post('/senha/solicitar', async (req, res) => {
       });
     }
     console.error('Erro ao solicitar reset:', error);
+    return res.status(500).json({ error: 'Erro ao processar solicitação.' });
+  }
+});
+
+
+// ======================================================
+// ROTA: Solicitar troca de senha via administrador
+// (usuário não recebe e-mail; admin define a nova senha
+// e avisa manualmente por WhatsApp)
+// POST /API/senha/solicitar-admin
+// ======================================================
+router.post('/senha/solicitar-admin', async (req, res) => {
+  try {
+    const { identificador, telefone } = req.body;
+
+    if (!identificador || !telefone) {
+      return res.status(400).json({
+        error: 'Informe seu e-mail (ou nome de usuário) e um telefone para contato.'
+      });
+    }
+
+    const { data: usuario, error: erroBusca } = await supabase
+      .from('usuarios')
+      .select('id, nome_usuario, email_usuario')
+      .or(`email_usuario.eq.${identificador},nome_usuario.eq.${identificador}`)
+      .maybeSingle();
+
+    if (erroBusca) {
+      return res.status(500).json({ error: erroBusca.message });
+    }
+
+    if (!usuario) {
+      return res.status(404).json({
+        error: 'Não encontramos essa conta. Confira o e-mail ou nome de usuário digitado.'
+      });
+    }
+
+    // Evita criar solicitações duplicadas enquanto uma já estiver pendente
+    const { data: pendente, error: erroPendente } = await supabase
+      .from('solicitacoes_senha')
+      .select('id')
+      .eq('usuario_id', usuario.id)
+      .eq('status', 'pendente')
+      .maybeSingle();
+
+    if (erroPendente) {
+      return res.status(500).json({ error: erroPendente.message });
+    }
+
+    if (pendente) {
+      return res.status(200).json({
+        message: 'Você já tem uma solicitação pendente. Aguarde o contato do administrador pelo WhatsApp.'
+      });
+    }
+
+    const { error: erroInsercao } = await supabase
+      .from('solicitacoes_senha')
+      .insert([{
+        usuario_id: usuario.id,
+        telefone,
+        status: 'pendente'
+      }]);
+
+    if (erroInsercao) {
+      return res.status(500).json({ error: erroInsercao.message });
+    }
+
+    return res.status(201).json({
+      message: 'Solicitação enviada! O administrador vai entrar em contato pelo WhatsApp com sua nova senha.'
+    });
+
+  } catch (error) {
     return res.status(500).json({ error: 'Erro ao processar solicitação.' });
   }
 });

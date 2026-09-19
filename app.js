@@ -2,7 +2,6 @@ import express from 'express';
 import dotenv from 'dotenv';
 import publicRoutes from './routes/public.js';
 import privateRoutes from './routes/private.js';
-import otpRoutes from './routes/otp.js';
 import cors from 'cors'
 
 import auth from './middlewares/auth.js';
@@ -18,7 +17,6 @@ app.use('/API',publicRoutes);
 
 //Essas rotas exigiram que o login tenha sido realizado
 app.use('/API', auth, privateRoutes);
-app.use('/API', otpRoutes)
 
 const PORT = process.env.PORT || 3000;
 
