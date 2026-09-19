@@ -2,8 +2,6 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import supabase from '../config/supabase.js';
-import { sendEmail } from '../lib/email.js';
-import { criarTokenReset, validarTokenReset, consumirTokenReset } from '../lib/senhaReset.js';
 
 const router = express.Router();
 
@@ -194,75 +192,6 @@ router.post('/login', async (req, res) => {
 
 
 // ======================================================
-// ROTA: Solicitar reset de senha (envia link por e-mail)
-// POST /API/senha/solicitar
-// ======================================================
-router.post('/senha/solicitar', async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email || !/^.+@.+$/.test(email)) {
-      return res.status(400).json({ error: 'E-mail inválido.' });
-    }
-
-    const { data: usuario } = await supabase
-      .from('usuarios')
-      .select('id, nome_usuario')
-      .eq('email_usuario', email)
-      .maybeSingle();
-
-    // Mesmo que não exista, retorna 200 (evita enumeração de e-mails)
-    if (!usuario) {
-      return res.status(200).json({
-        message: 'Se o e-mail estiver cadastrado, você receberá um link.'
-      });
-    }
-
-    const token = await criarTokenReset(email);
-
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'https://chatames.onrender.com';
-    const linkReset = `${FRONTEND_URL}/resetar-senha/${token}`;
-
-    await sendEmail(
-      email,
-      'Redefinição de senha - Chatames',
-      `
-        <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
-          <h2 style="color:#f97316">Redefinição de senha</h2>
-          <p>Olá, ${usuario.nome_usuario}!</p>
-          <p>Recebemos uma solicitação para redefinir sua senha.</p>
-          <p>Clique no botão abaixo para criar uma nova senha:</p>
-          <p style="text-align:center;margin:30px 0">
-            <a href="${linkReset}"
-               style="background:#f97316;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold">
-              Redefinir senha
-            </a>
-          </p>
-          <p style="color:#666;font-size:14px">Este link é válido por 30 minutos.</p>
-          <p style="color:#999;font-size:12px">
-            Se você não solicitou, ignore este e-mail. Sua senha permanece a mesma.
-          </p>
-        </div>
-      `
-    );
-
-    return res.status(200).json({
-      message: 'Se o e-mail estiver cadastrado, você receberá um link.'
-    });
-
-  } catch (error) {
-    if (error.message === 'RATE_LIMITED') {
-      return res.status(429).json({
-        error: 'Aguarde um minuto antes de solicitar novamente.'
-      });
-    }
-    console.error('Erro ao solicitar reset:', error);
-    return res.status(500).json({ error: 'Erro ao processar solicitação.' });
-  }
-});
-
-
-// ======================================================
 // ROTA: Solicitar troca de senha via administrador
 // (usuário não recebe e-mail; admin define a nova senha
 // e avisa manualmente por WhatsApp)
@@ -330,80 +259,6 @@ router.post('/senha/solicitar-admin', async (req, res) => {
 
   } catch (error) {
     return res.status(500).json({ error: 'Erro ao processar solicitação.' });
-  }
-});
-
-
-// ======================================================
-// ROTA: Validar token de reset
-// GET /API/senha/validar/:token
-// ======================================================
-router.get('/senha/validar/:token', async (req, res) => {
-  try {
-    const { token } = req.params;
-    const resultado = await validarTokenReset(token);
-
-    if (!resultado.valid) {
-      return res.status(400).json({
-        valid: false,
-        reason: resultado.reason
-      });
-    }
-
-    return res.status(200).json({ valid: true });
-  } catch (error) {
-    return res.status(500).json({ valid: false, reason: 'ERROR' });
-  }
-});
-
-
-// ======================================================
-// ROTA: Redefinir senha
-// POST /API/senha/resetar
-// ======================================================
-router.post('/senha/resetar', async (req, res) => {
-  try {
-    const { token, novaSenha } = req.body;
-
-    if (!token || !novaSenha) {
-      return res.status(400).json({ error: 'Dados incompletos.' });
-    }
-
-    if (novaSenha.length < 6) {
-      return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
-    }
-
-    // Consome o token (marca como usado)
-    const consumo = await consumirTokenReset(token);
-
-    if (!consumo.success) {
-      const mensagens = {
-        NOT_FOUND: 'Link inválido.',
-        EXPIRED: 'Link expirado. Solicite um novo.',
-        USED: 'Este link já foi utilizado.',
-        DB_ERROR: 'Erro ao processar.'
-      };
-      return res.status(400).json({ error: mensagens[consumo.reason] });
-    }
-
-    // Hash da nova senha
-    const senhaHash = await bcrypt.hash(novaSenha, 10);
-
-    // Atualiza no banco
-    const { error } = await supabase
-      .from('usuarios')
-      .update({ senha_usuario: senhaHash })
-      .eq('email_usuario', consumo.email);
-
-    if (error) {
-      return res.status(500).json({ error: 'Erro ao atualizar senha.' });
-    }
-
-    return res.status(200).json({ message: 'Senha atualizada com sucesso!' });
-
-  } catch (error) {
-    console.error('Erro ao resetar senha:', error);
-    return res.status(500).json({ error: 'Erro no servidor.' });
   }
 });
 
