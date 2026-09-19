@@ -117,7 +117,7 @@ router.get('/admin/solicitacoes-senha', auth, admin, async (req, res) => {
 
     const { data, error } = await supabase
         .from('solicitacoes_senha')
-        .select('id, telefone, status, criado_em, usuario_id, usuarios(nome_usuario, email_usuario)')
+        .select('id, telefone, status, criado_em, usuario_id, usuarios!usuario_id(nome_usuario, email_usuario)')
         .eq('status', 'pendente')
         .order('criado_em', { ascending: true });
 
