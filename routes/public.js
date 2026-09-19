@@ -198,11 +198,12 @@ router.post('/otp/send', async (req, res) => {
             });
         }
 
-        if (existente) {
-            return res.status(409).json({
-                error: 'Este e-mail já está cadastrado.'
-            });
-        }
+        //Comentada pois ocasianava bug em cadastro de contas
+        //if (existente) {
+        //    return res.status(409).json({
+        //        error: 'Este e-mail já está cadastrado.'
+        //    });
+        //}
 
         const code = await createOtp(email);
 
