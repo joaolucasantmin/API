@@ -2,7 +2,7 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import supabase from '../config/supabase.js';
-import { validarEmailPermitido } from '../utils/email.js'; // ajuste o caminho
+import { validarEmailPermitido} from '../utils/email.js'; 
 
 const router = express.Router();
 
