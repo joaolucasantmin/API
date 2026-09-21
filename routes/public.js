@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import supabase from '../config/supabase.js';
+import { validarEmailPermitido } from '../utils/email.js'; // ajuste o caminho
 
 const router = express.Router();
 
@@ -20,6 +21,16 @@ router.post('/cadastro', async (req, res) => {
             return res.status(400).json({
                 error: 'Todos os campos são obrigatórios.'
             });
+        }
+
+        // Valida se o e-mail é de um domínio permitido
+        const emailLimpo = user.email_usuario.trim().toLowerCase();
+
+        const checkEmail = validarEmailPermitido(emailLimpo);
+
+        if (!checkEmail.valido) {
+        return res.status(400).json({
+        error: checkEmail.motivo });
         }
 
         // Verifica se já existe usuário com mesmo e-mail ou nome
@@ -134,16 +145,38 @@ router.post('/login', async (req, res) => {
             });
         }
 
+        // Normaliza o e-mail 
+        const emailLimpo = email_usuario.trim().toLowerCase();
+
+        // Bloqueia domínios fora da whitelist antes de tocar no banco.
+        // Retorna 401 genérico pra não revelar se a conta existe.
+        const checkEmail = validarEmailPermitido(emailLimpo);
+
+        if (!checkEmail.valido) {
+            return res.status(401).json({
+                error: "e-mail ou senha inválidos!"
+            });
+        }
+
         const { data: usuario, error } = await supabase
             .from('usuarios')
             .select('*')
-            .eq('email_usuario', email_usuario)
+            .eq('email_usuario', emailLimpo)
             .single();
 
         // Caso usuário for inválido, informar erro
         if (error || !usuario) {
             return res.status(401).json({
                 error: "e-mail ou senha inválidos!"
+            });
+        }
+
+        // Bloqueia contas antigas cujo e-mail está fora da whitelist,
+        const checkEmailDoBanco = validarEmailPermitido(usuario.email_usuario);
+
+        if (!checkEmailDoBanco.valido) {
+            return res.status(403).json({
+                error: "Sua conta usa um provedor de e-mail que não é mais aceito. Entre em contato com o suporte para atualizar seu cadastro."
             });
         }
 
@@ -160,7 +193,7 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Gerar Token JWT
+        // Gera Token JWT
         const token = jwt.sign(
             {
                 id: usuario.id,
@@ -189,7 +222,6 @@ router.post('/login', async (req, res) => {
         res.status(500).json({ message: 'Erro no Servidor!' });
     }
 });
-
 
 // ======================================================
 // ROTA: Solicitar troca de senha via administrador
